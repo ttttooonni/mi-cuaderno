@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "mi-apiario",
+      "hasCanvas": false,
+      "bodyTextLen": 564,
+      "bodyTextHash": "f872a05f53b05ebf54a83bdca48b7eb99d56f9a189c740137e71e1981d095bd6",
+      "bodyTextPrefix": "mi-apiario Cuaderno de explotación Inicio Apiarios Sanidad Produ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "mi-apiario",
+      "hasCanvas": false,
+      "bodyTextLen": 516,
+      "bodyTextHash": "f3753a9655a1262a8ee7378b53500cba8ec7105c62ed13c601f8c4e881d45b26",
+      "bodyTextPrefix": "mi-apiario Descargar aplicación TEMPORADA 2026 Inicio Cuaderno d",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

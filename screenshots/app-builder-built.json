@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "mi-apiario",
+      "hasCanvas": false,
+      "bodyTextLen": 311,
+      "bodyTextHash": "d95aeab5e308e662b859251289073361771d9277afa2b7fbdf8978fa7be51bc6",
+      "bodyTextPrefix": "mi-apiario Cuaderno de explotación Inicio Apiarios Producción Hi",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "mi-apiario",
+      "hasCanvas": false,
+      "bodyTextLen": 261,
+      "bodyTextHash": "6f51ce2e6c2b8b7e210ef4b8b3258a708733b5f83fac4e001a3e595241b1265c",
+      "bodyTextPrefix": "mi-apiario TEMPORADA 2026 Inicio Cuaderno de explotación. Lo imp",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}
