@@ -1,3 +1,5 @@
+import { publicUrl } from "@/lib/asset";
+
 export type InstallKind = "prompt" | "ios" | "browser" | "installed";
 
 type PromptEvent = Event & {
@@ -82,12 +84,12 @@ export function detectInstallKind(): InstallKind {
 }
 
 export function iosInstallHref(): string {
-  return "/?install=1&platform=ios";
+  return `${publicUrl("")}?install=1&platform=ios`;
 }
 
 export function openAppInBrowser(): boolean {
   if (typeof window === "undefined") return false;
-  const url = `${window.location.origin}/`;
+  const url = `${window.location.origin}${publicUrl("")}`;
   const opened = window.open(url, "_blank", "noopener,noreferrer");
   return Boolean(opened);
 }

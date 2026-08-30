@@ -7,6 +7,7 @@ import { DownloadLocalButton } from "@/components/apiary/download-local";
 import { InstallAppButton } from "@/components/apiary/install-app";
 import { QueenSwatch } from "@/components/apiary/queen-swatch";
 import { PageHeader } from "@/components/layout/page-header";
+import { publicUrl } from "@/lib/asset";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -104,7 +105,7 @@ function DataPage() {
           </p>
           <div className="mt-4">
             <Button asChild variant="outline">
-              <a href="/mi-apiario.zip" download="mi-apiario.zip">
+              <a href={publicUrl("mi-apiario.zip")} download="mi-apiario.zip">
                 <FileArchive />
                 Descargar ZIP
               </a>

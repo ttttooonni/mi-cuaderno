@@ -1,9 +1,10 @@
+import { publicUrl } from "@/lib/asset";
 import { cn } from "@/lib/utils";
 
 export function HiveMark({ className }: { className?: string }) {
   return (
     <img
-      src="/icon-192.png"
+      src={publicUrl("icon-192.png")}
       alt=""
       width={40}
       height={40}

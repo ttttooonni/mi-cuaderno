@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
+import { publicUrl } from "@/lib/asset";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import {
   Dialog,
@@ -184,7 +185,7 @@ function InstallDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2.5">
             <img
-              src="/icon-192.png"
+              src={publicUrl("icon-192.png")}
               alt=""
               width={40}
               height={40}

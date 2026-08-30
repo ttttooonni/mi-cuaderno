@@ -145,7 +145,15 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+//
+// GitHub Pages is static-only: `PAGES=1` enables SPA mode, skips Nitro/Vercel,
+// and sets `base` to the project subpath. Default `npm run build` is unchanged.
+const isPages = process.env.PAGES === "1";
+const pagesBase = process.env.PAGES_BASE || "/mi-cuaderno/";
+const pagesBasepath = pagesBase.replace(/\/+$/, "") || "/";
+
 export default defineConfig(({ command, isPreview }) => ({
+  base: isPages ? (pagesBase.endsWith("/") ? pagesBase : `${pagesBase}/`) : "/",
   server: {
     host: "0.0.0.0",
     port: 8080,
@@ -166,17 +174,33 @@ export default defineConfig(({ command, isPreview }) => ({
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin(),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart(
+      isPages
+        ? {
+            spa: {
+              enabled: true,
+              prerender: {
+                outputPath: "/index.html",
+              },
+            },
+            router: {
+              basepath: pagesBasepath,
+            },
+          }
+        : {},
+    ),
     ...(command === "build" || isPreview
-      ? [
-          nitro({
-            preset: "vercel",
-            // Auto-registers server/middleware/* (the PWA install page +
-            // manifest + head-tag middleware). Nitro v3 defaults serverDir to
-            // false, so removing this silently unwires /?install=1 on deploys.
-            serverDir: "./server",
-          }),
-        ]
+      ? isPages
+        ? []
+        : [
+            nitro({
+              preset: "vercel",
+              // Auto-registers server/middleware/* (the PWA install page +
+              // manifest + head-tag middleware). Nitro v3 defaults serverDir to
+              // false, so removing this silently unwires /?install=1 on deploys.
+              serverDir: "./server",
+            }),
+          ]
       : []),
     viteReact(),
   ],
