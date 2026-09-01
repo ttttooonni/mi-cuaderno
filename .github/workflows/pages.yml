@@ -6,9 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: github-pages
@@ -16,11 +14,11 @@ concurrency:
 
 jobs:
   publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip pages]'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     env:
       PAGES_BASE: /mi-cuaderno/
       NODE_OPTIONS: --max-old-space-size=4096
@@ -38,11 +36,26 @@ jobs:
       - name: Construir sitio estático
         run: npm run build:pages
 
-      - name: Subir artefacto
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist/pages
+      - name: Copiar a la raíz
+        run: |
+          set -euo pipefail
+          test -f dist/pages/index.html
+          rm -rf assets __grok
+          cp -a dist/pages/. .
+          rm -f mi-apiario.zip
 
       - name: Publicar
-        id: deployment
-        uses: actions/deploy-pages@v4
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- index.html 404.html .nojekyll assets __grok \
+            favicon-32.png favicon.svg icon-192.png icon-512.png \
+            logo.png manifest.webmanifest og.jpg x-banner.jpg
+          git rm -f --ignore-unmatch mi-apiario.zip public/mi-apiario.zip || true
+          if git diff --cached --quiet; then
+            echo "Sin cambios en el sitio."
+            exit 0
+          fi
+          git commit -m "Publicar sitio [skip pages]"
+          git push
