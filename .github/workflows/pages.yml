@@ -31,7 +31,7 @@ jobs:
           cache: npm
 
       - name: Instalar
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Construir sitio estático
         run: npm run build:pages
