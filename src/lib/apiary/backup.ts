@@ -5,18 +5,136 @@ import { APP_ID, DATA_VERSION, type AppState, type BackupFile } from "./types";
 
 export type BackupSaveResult = "saved" | "downloaded" | "copied" | "cancelled";
 
+const MAX_BACKUP_CHARS = 6_000_000;
+const MAX_ROWS = 80_000;
+const MAX_NOTE = 8_000;
+const MAX_NAME = 200;
+const MAX_ID = 128;
+
+const Iso = z.string().min(4).max(40);
+const Id = z.string().min(1).max(MAX_ID);
+const Note = z.string().max(MAX_NOTE).optional();
+
+const ColonyKindSchema = z.enum(["hive", "nuc"]);
+const FrameKindSchema = z.enum(["standard", "medium"]);
+const ProductKindSchema = z.enum(["honey", "propolis", "pollen", "wax", "royal_jelly"]);
+const ActionTypeSchema = z.enum([
+  "inspection",
+  "harvest",
+  "change_queen",
+  "add_frames",
+  "remove_frames",
+  "add_super",
+  "remove_super",
+  "treatment",
+  "split",
+  "create_nuc",
+  "move",
+  "note",
+]);
+const HealthTopicSchema = z.enum([
+  "varroa",
+  "nosema",
+  "foulbrood",
+  "chalkbrood",
+  "hornet",
+  "surveillance",
+  "other",
+]);
+const HealthKindSchema = z.enum(["treatment", "observation", "sampling"]);
+
+const Qty = z.number().finite().min(0).max(1_000_000);
+
+const ApiarySchema = z.object({
+  id: Id,
+  name: z.string().min(1).max(MAX_NAME),
+  location: z.string().max(MAX_NAME).default(""),
+  notes: Note,
+  createdAt: Iso,
+  updatedAt: Iso,
+});
+
+const ColonySchema = z.object({
+  id: Id,
+  apiaryId: Id,
+  kind: ColonyKindSchema,
+  number: z.string().min(1).max(40),
+  notes: Note,
+  createdAt: Iso,
+  updatedAt: Iso,
+});
+
+const QueenSchema = z.object({
+  id: Id,
+  colonyId: Id,
+  introducedAt: Iso,
+  retiredAt: Iso.optional(),
+  retireReason: Note,
+  origin: z.string().max(MAX_NAME).optional(),
+});
+
+const ActionSchema = z.object({
+  id: Id,
+  colonyId: Id,
+  type: ActionTypeSchema,
+  date: Iso,
+  notes: Note,
+  framesKind: FrameKindSchema.optional(),
+  framesQty: z.number().int().min(0).max(1_000).optional(),
+  supersQty: z.number().int().min(0).max(100).optional(),
+  treatmentProduct: z.string().max(MAX_NAME).optional(),
+  harvestQty: Qty.optional(),
+  moveToApiaryId: Id.optional(),
+  queenIntroducedAt: Iso.optional(),
+  queenOrigin: z.string().max(MAX_NAME).optional(),
+  queenRetireReason: Note,
+  createdAt: Iso,
+});
+
+const HealthSchema = z.object({
+  id: Id,
+  colonyId: Id,
+  topic: HealthTopicSchema,
+  kind: HealthKindSchema,
+  date: Iso,
+  product: z.string().max(MAX_NAME).optional(),
+  notes: Note,
+  actionId: Id.optional(),
+  createdAt: Iso,
+});
+
+const ProductionSchema = z.object({
+  id: Id,
+  product: ProductKindSchema,
+  date: Iso,
+  quantity: Qty,
+  lot: z.string().max(80).default(""),
+  notes: Note,
+  createdAt: Iso,
+});
+
+const YearCloseSchema = z.object({
+  year: z.number().int().min(1990).max(2100),
+  hives: z.number().int().min(0).max(100_000),
+  nucs: z.number().int().min(0).max(100_000),
+  closedAt: Iso,
+  notes: Note,
+});
+
+const rows = <T extends z.ZodType>(schema: T) => z.array(schema).max(MAX_ROWS);
+
 const BackupSchema = z.object({
   app: z.string(),
-  version: z.number(),
-  exportedAt: z.string(),
+  version: z.number().int().min(1).max(20),
+  exportedAt: z.string().min(4).max(40),
   data: z.object({
-    apiaries: z.array(z.unknown()),
-    colonies: z.array(z.unknown()),
-    queens: z.array(z.unknown()),
-    actions: z.array(z.unknown()),
-    health: z.array(z.unknown()).optional(),
-    production: z.array(z.unknown()),
-    yearCloses: z.array(z.unknown()).optional(),
+    apiaries: rows(ApiarySchema),
+    colonies: rows(ColonySchema),
+    queens: rows(QueenSchema),
+    actions: rows(ActionSchema),
+    health: rows(HealthSchema).optional(),
+    production: rows(ProductionSchema),
+    yearCloses: rows(YearCloseSchema).optional(),
   }),
 });
 
@@ -130,7 +248,17 @@ export async function saveBackupLocally(state: AppState): Promise<BackupSaveResu
   }
 }
 
+function zodMessage(error: z.ZodError): string {
+  const first = error.issues[0];
+  if (!first) return "El archivo no tiene el formato de una copia de mi-apiario.";
+  if (first.code === "too_big") return "La copia es demasiado grande o tiene demasiados registros.";
+  return "El archivo no tiene el formato de una copia de mi-apiario.";
+}
+
 export function parseBackup(raw: string): AppState {
+  if (raw.length > MAX_BACKUP_CHARS) {
+    throw new Error("El archivo es demasiado grande para importarlo con seguridad.");
+  }
   let json: unknown;
   try {
     json = JSON.parse(raw);
@@ -139,20 +267,20 @@ export function parseBackup(raw: string): AppState {
   }
   const parsed = BackupSchema.safeParse(json);
   if (!parsed.success) {
-    throw new Error("El archivo no tiene el formato de una copia de mi-apiario.");
+    throw new Error(zodMessage(parsed.error));
   }
   if (parsed.data.app !== APP_ID) {
     throw new Error("El archivo no pertenece a mi-apiario.");
   }
   const data = parsed.data.data;
   return {
-    apiaries: data.apiaries as AppState["apiaries"],
-    colonies: data.colonies as AppState["colonies"],
-    queens: data.queens as AppState["queens"],
-    actions: data.actions as AppState["actions"],
-    health: (data.health ?? []) as AppState["health"],
-    production: data.production as AppState["production"],
-    yearCloses: (data.yearCloses ?? []) as AppState["yearCloses"],
+    apiaries: data.apiaries,
+    colonies: data.colonies,
+    queens: data.queens,
+    actions: data.actions,
+    health: data.health ?? [],
+    production: data.production,
+    yearCloses: data.yearCloses ?? [],
   };
 }
 

@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { importBackup } from "./backup";
-import { commitAction, commitHealth, removeHealth } from "./commands";
+import { commitAction, commitHealth, commitHealthMany, removeAction, removeHealth } from "./commands";
 import {
   deleteApiaryCascade,
   deleteColonyCascade,
   deleteRecord,
+  getPersistStatus,
   loadState,
   putRecord,
   replaceAll,
@@ -34,9 +36,23 @@ export function useNotebook() {
   };
 }
 
+function reportPersist(): void {
+  const status = getPersistStatus();
+  if (status.failed) {
+    toast.error("No se pudo guardar en este dispositivo. Descarga una copia JSON.");
+    return;
+  }
+  if (status.nearLimit) {
+    toast.message("El cuaderno está llenando el espacio del navegador. Descarga una copia.");
+  }
+}
+
 function useInvalidate() {
   const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: APP_QUERY_KEY });
+  return () => {
+    void client.invalidateQueries({ queryKey: APP_QUERY_KEY });
+    reportPersist();
+  };
 }
 
 export function useAppMutations() {
@@ -77,6 +93,11 @@ export function useAppMutations() {
     onSuccess: invalidate,
   });
 
+  const saveHealthMany = useMutation({
+    mutationFn: (rows: HealthRecord[]) => commitHealthMany(rows),
+    onSuccess: invalidate,
+  });
+
   const removeHealthRecord = useMutation({
     mutationFn: (id: string) => removeHealth(id),
     onSuccess: invalidate,
@@ -103,8 +124,8 @@ export function useAppMutations() {
     onSuccess: invalidate,
   });
 
-  const removeAction = useMutation({
-    mutationFn: (id: string) => deleteRecord("actions", id),
+  const removeActionRecord = useMutation({
+    mutationFn: (id: string) => removeAction(id),
     onSuccess: invalidate,
   });
 
@@ -131,11 +152,12 @@ export function useAppMutations() {
     saveProduction,
     saveYearClose,
     saveHealth,
+    saveHealthMany,
     removeHealthRecord,
     removeApiary,
     removeColony,
     removeProduction,
-    removeAction,
+    removeAction: removeActionRecord,
     loadSample,
     restore,
     resetAll,

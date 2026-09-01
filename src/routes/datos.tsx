@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { FileArchive } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDelete } from "@/components/apiary/confirm-delete";
@@ -7,11 +6,12 @@ import { DownloadLocalButton } from "@/components/apiary/download-local";
 import { InstallAppButton } from "@/components/apiary/install-app";
 import { QueenSwatch } from "@/components/apiary/queen-swatch";
 import { PageHeader } from "@/components/layout/page-header";
-import { publicUrl } from "@/lib/asset";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   copyBackup,
+  formatStorageSize,
+  getPersistStatus,
   QUEEN_COLOR_CYCLE,
   QUEEN_COLOR_META,
   useAppMutations,
@@ -28,6 +28,7 @@ function DataPage() {
   const [pendingFile, setPendingFile] = useState<string | null>(null);
   const [sampleOpen, setSampleOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const storage = getPersistStatus();
 
   function onPickFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -51,6 +52,33 @@ function DataPage() {
       />
 
       <div className="grid gap-4">
+        <Card className="p-5">
+          <h2 className="font-display text-lg font-medium">Este dispositivo</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Instala mi-apiario en el teléfono, el iPad o el ordenador. Funciona sin visor y sin
+            cuenta. Los datos no se envían a ningún servidor.
+          </p>
+          <div className="mt-4">
+            <InstallAppButton label="Descargar aplicación" />
+          </div>
+          <p className="mt-3 text-sm tabular-nums text-muted-foreground">
+            {data.apiaries.length} apiarios · {data.colonies.length} colonias ·{" "}
+            {data.actions.length} acciones · {data.production.length} lotes
+            {storage.bytes > 0 ? ` · ${formatStorageSize(storage.bytes)}` : ""}
+          </p>
+          {storage.failed ? (
+            <p className="mt-2 text-sm text-destructive">
+              El último guardado no cupo en este navegador. Descarga una copia JSON ahora.
+            </p>
+          ) : storage.nearLimit ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              El cuaderno está ocupando casi todo el espacio del navegador (
+              {formatStorageSize(storage.bytes)} de {formatStorageSize(storage.limit)}). Descarga
+              una copia.
+            </p>
+          ) : null}
+        </Card>
+
         <Card className="p-5">
           <h2 className="font-display text-lg font-medium">Copia de seguridad</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -79,37 +107,6 @@ function DataPage() {
               className="hidden"
               onChange={onPickFile}
             />
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="font-display text-lg font-medium">Este dispositivo</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Instala mi-apiario en el teléfono, el iPad o el ordenador. Funciona sin visor y sin
-            cuenta. Los datos no se envían a ningún servidor.
-          </p>
-          <div className="mt-4">
-            <InstallAppButton label="Descargar aplicación" />
-          </div>
-          <p className="mt-3 text-sm tabular-nums text-muted-foreground">
-            {data.apiaries.length} apiarios · {data.colonies.length} colonias ·{" "}
-            {data.actions.length} acciones · {data.production.length} lotes
-          </p>
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="font-display text-lg font-medium">Archivos del proyecto</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Código, logo e iconos de mi-apiario en un ZIP. No incluye tus colmenas: esas van en el
-            JSON de arriba.
-          </p>
-          <div className="mt-4">
-            <Button asChild variant="outline">
-              <a href={publicUrl("mi-apiario.zip")} download="mi-apiario.zip">
-                <FileArchive />
-                Descargar ZIP
-              </a>
-            </Button>
           </div>
         </Card>
 

@@ -1,11 +1,10 @@
 import { currentQueen } from "./selectors";
-import { loadState, putRecord, deleteRecord } from "./idb";
+import { deleteRecord, loadState, putRecord, runWrite } from "./idb";
 import { newId, nowIso } from "./dates";
 import { isLegacyHealthId, legacyActionId } from "./health";
 import type { ColonyAction, HealthRecord, Queen } from "./types";
 
-/** Persists an action and applies the side effects (reina, traslado, sanidad). */
-export async function commitAction(action: ColonyAction): Promise<void> {
+async function applyAction(action: ColonyAction): Promise<void> {
   const state = await loadState();
 
   if (action.type === "change_queen") {
@@ -38,53 +37,46 @@ export async function commitAction(action: ColonyAction): Promise<void> {
     }
   }
 
-  if (action.type === "treatment") {
-    const already = (state.health ?? []).some((row) => row.actionId === action.id);
-    if (!already) {
-      const health: HealthRecord = {
-        id: newId(),
-        colonyId: action.colonyId,
-        topic: "varroa",
-        kind: "treatment",
-        date: action.date,
-        product: action.treatmentProduct,
-        notes: action.notes,
-        actionId: action.id,
-        createdAt: action.createdAt,
-      };
-      await putRecord("health", health);
-    }
-  }
-
   await putRecord("actions", action);
 }
 
+/** Persists an action and applies side effects (reina, traslado) in one write. */
+export async function commitAction(action: ColonyAction): Promise<void> {
+  await runWrite(() => applyAction(action));
+}
+
+async function applyHealth(row: HealthRecord): Promise<void> {
+  await putRecord("health", row);
+}
+
 export async function commitHealth(row: HealthRecord): Promise<void> {
-  let record = row;
-  if (row.kind === "treatment" && !row.actionId) {
-    const actionId = newId();
-    record = { ...row, actionId };
-    const action: ColonyAction = {
-      id: actionId,
-      colonyId: row.colonyId,
-      type: "treatment",
-      date: row.date,
-      notes: row.notes,
-      treatmentProduct: row.product,
-      createdAt: row.createdAt,
-    };
-    await putRecord("actions", action);
-  }
-  await putRecord("health", record);
+  await runWrite(() => applyHealth(row));
+}
+
+export async function commitHealthMany(rows: HealthRecord[]): Promise<void> {
+  await runWrite(async () => {
+    for (const row of rows) await applyHealth(row);
+  });
 }
 
 export async function removeHealth(id: string): Promise<void> {
-  if (isLegacyHealthId(id)) {
-    await deleteRecord("actions", legacyActionId(id));
-    return;
-  }
-  const state = await loadState();
-  const row = (state.health ?? []).find((item) => item.id === id);
-  await deleteRecord("health", id);
-  if (row?.actionId) await deleteRecord("actions", row.actionId);
+  await runWrite(async () => {
+    if (isLegacyHealthId(id)) {
+      await deleteRecord("actions", legacyActionId(id));
+      return;
+    }
+    const state = await loadState();
+    const row = (state.health ?? []).find((item) => item.id === id);
+    await deleteRecord("health", id);
+    if (row?.actionId) await deleteRecord("actions", row.actionId);
+  });
+}
+
+export async function removeAction(id: string): Promise<void> {
+  await runWrite(async () => {
+    const state = await loadState();
+    const linked = (state.health ?? []).filter((item) => item.actionId === id);
+    await deleteRecord("actions", id);
+    for (const row of linked) await deleteRecord("health", row.id);
+  });
 }

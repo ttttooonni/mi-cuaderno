@@ -10,6 +10,35 @@ import type {
   YearClose,
 } from "./types";
 
+const actionIndexCache = new WeakMap<AppState, Map<string, ColonyAction[]>>();
+const queenIndexCache = new WeakMap<AppState, Map<string, Queen[]>>();
+
+function actionsByColony(state: AppState): Map<string, ColonyAction[]> {
+  const hit = actionIndexCache.get(state);
+  if (hit) return hit;
+  const index = new Map<string, ColonyAction[]>();
+  for (const action of state.actions) {
+    const list = index.get(action.colonyId);
+    if (list) list.push(action);
+    else index.set(action.colonyId, [action]);
+  }
+  actionIndexCache.set(state, index);
+  return index;
+}
+
+function queensByColony(state: AppState): Map<string, Queen[]> {
+  const hit = queenIndexCache.get(state);
+  if (hit) return hit;
+  const index = new Map<string, Queen[]>();
+  for (const queen of state.queens) {
+    const list = index.get(queen.colonyId);
+    if (list) list.push(queen);
+    else index.set(queen.colonyId, [queen]);
+  }
+  queenIndexCache.set(state, index);
+  return index;
+}
+
 export function sortColonies(colonies: Colony[]): Colony[] {
   return [...colonies].sort((a, b) =>
     a.number.localeCompare(b.number, "es", { numeric: true, sensitivity: "base" }),
@@ -33,23 +62,29 @@ export function nucCount(state: AppState, apiaryId?: string): number {
 }
 
 export function currentQueen(state: AppState, colonyId: string): Queen | undefined {
-  return state.queens.find((queen) => queen.colonyId === colonyId && !queen.retiredAt);
+  const list = queensByColony(state).get(colonyId);
+  if (!list) return undefined;
+  return list.find((queen) => !queen.retiredAt);
 }
 
 export function queenHistory(state: AppState, colonyId: string): Queen[] {
-  return [...state.queens]
-    .filter((queen) => queen.colonyId === colonyId)
-    .sort((a, b) => b.introducedAt.localeCompare(a.introducedAt));
+  const list = queensByColony(state).get(colonyId) ?? [];
+  return [...list].sort((a, b) => b.introducedAt.localeCompare(a.introducedAt));
 }
 
 export function actionsOf(state: AppState, colonyId: string): ColonyAction[] {
-  return [...state.actions]
-    .filter((action) => action.colonyId === colonyId)
-    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  const list = actionsByColony(state).get(colonyId) ?? [];
+  return [...list].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
 
 export function lastAction(state: AppState, colonyId: string): ColonyAction | undefined {
-  return actionsOf(state, colonyId)[0];
+  const list = actionsByColony(state).get(colonyId);
+  if (!list || list.length === 0) return undefined;
+  return list.reduce((best, action) =>
+    action.date > best.date || (action.date === best.date && action.createdAt > best.createdAt)
+      ? action
+      : best,
+  );
 }
 
 export function apiaryOf(state: AppState, id: string) {

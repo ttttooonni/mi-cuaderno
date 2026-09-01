@@ -20,6 +20,7 @@ import {
   formatDate,
   healthOfYear,
   healthSummary,
+  healthYears,
   unifiedHealth,
   useAppMutations,
   useNotebook,
@@ -32,24 +33,26 @@ export const Route = createFileRoute("/sanidad")({ component: SanidadPage });
 
 function SanidadPage() {
   const { data } = useNotebook();
-  const { saveHealth, removeHealthRecord } = useAppMutations();
-  const year = currentYear();
+  const { saveHealthMany, removeHealthRecord } = useAppMutations();
+  const yearNow = currentYear();
   const [formOpen, setFormOpen] = useState(false);
   const [presetTopic, setPresetTopic] = useState<HealthTopic>("varroa");
   const [topicFilter, setTopicFilter] = useState<HealthTopic | "all">("all");
+  const [yearFilter, setYearFilter] = useState<number | "all">(yearNow);
   const [deleting, setDeleting] = useState<HealthRecord | null>(null);
 
-  const yearRows = healthOfYear(data, year);
-  const treated = varroaTreatedIds(data, year);
-  const pending = coloniesMissingVarroa(data, year);
+  const years = healthYears(data);
+  const yearRows = healthOfYear(data, yearNow);
+  const treated = varroaTreatedIds(data, yearNow);
+  const pending = coloniesMissingVarroa(data, yearNow);
   const varroaCount = yearRows.filter((row) => row.topic === "varroa" && row.kind === "treatment").length;
   const otherCount = yearRows.filter((row) => row.topic !== "varroa").length;
 
   const rows = useMemo(() => {
-    const list = unifiedHealth(data);
+    const list = yearFilter === "all" ? unifiedHealth(data) : healthOfYear(data, yearFilter);
     if (topicFilter === "all") return list;
     return list.filter((row) => row.topic === topicFilter);
-  }, [data, topicFilter]);
+  }, [data, topicFilter, yearFilter]);
 
   return (
     <div>
@@ -92,7 +95,7 @@ function SanidadPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <StatCard label={`Varroa ${year}`} value={varroaCount} />
+            <StatCard label={`Varroa ${yearNow}`} value={varroaCount} />
             <StatCard label="Colonias tratadas" value={`${treated.size}/${data.colonies.length}`} />
             <StatCard label="Pendientes" value={pending.length} />
             <StatCard label="Otros registros" value={otherCount} />
@@ -101,7 +104,7 @@ function SanidadPage() {
           {pending.length > 0 ? (
             <Card className="mt-4 p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-display text-lg font-medium">Pendiente de varroa {year}</h2>
+                <h2 className="font-display text-lg font-medium">Pendiente de varroa {yearNow}</h2>
                 <p className="text-sm text-muted-foreground">
                   Colonias sin tratamiento registrado este año.
                 </p>
@@ -126,7 +129,7 @@ function SanidadPage() {
             </Card>
           ) : (
             <Card className="mt-4 p-5">
-              <h2 className="font-display text-lg font-medium">Varroa {year}</h2>
+              <h2 className="font-display text-lg font-medium">Varroa {yearNow}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Todas las colonias tienen al menos un tratamiento registrado este año.
               </p>
@@ -135,6 +138,20 @@ function SanidadPage() {
 
           <div className="mt-8 mb-3 flex flex-wrap items-center gap-2">
             <h2 className="mr-auto font-display text-lg font-medium">Registros</h2>
+            {years.map((item) => (
+              <FilterChip
+                key={item}
+                active={yearFilter === item}
+                onClick={() => setYearFilter(item)}
+              >
+                {String(item)}
+              </FilterChip>
+            ))}
+            <FilterChip active={yearFilter === "all"} onClick={() => setYearFilter("all")}>
+              Todos
+            </FilterChip>
+          </div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <FilterChip active={topicFilter === "all"} onClick={() => setTopicFilter("all")}>
               Todos
             </FilterChip>
@@ -220,9 +237,11 @@ function SanidadPage() {
         onOpenChange={setFormOpen}
         state={data}
         presetTopic={presetTopic}
-        onSubmit={async (rows) => {
-          for (const row of rows) await saveHealth.mutateAsync(row);
-          toast.success(rows.length > 1 ? `${rows.length} registros guardados` : "Registro guardado");
+        onSubmit={async (rowsToSave) => {
+          await saveHealthMany.mutateAsync(rowsToSave);
+          toast.success(
+            rowsToSave.length > 1 ? `${rowsToSave.length} registros guardados` : "Registro guardado",
+          );
         }}
       />
 
@@ -232,7 +251,7 @@ function SanidadPage() {
           if (!open) setDeleting(null);
         }}
         title="Quitar este registro"
-        description="Desaparecerá del cuaderno sanitario y, si era un tratamiento, del historial de la colonia."
+        description="Desaparecerá del cuaderno sanitario."
         confirmLabel="Quitar"
         onConfirm={async () => {
           if (!deleting) return;

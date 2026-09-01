@@ -41,7 +41,7 @@ function ColonyPage() {
   const { colonyId } = Route.useParams();
   const navigate = useNavigate();
   const { data } = useNotebook();
-  const { saveColony, saveQueen, saveAction, saveHealth, removeColony, removeAction } = useAppMutations();
+  const { saveColony, saveQueen, saveAction, saveHealthMany, removeColony, removeAction } = useAppMutations();
   const [actionOpen, setActionOpen] = useState(false);
   const [presetType, setPresetType] = useState<ActionType | undefined>();
   const [healthOpen, setHealthOpen] = useState(false);
@@ -49,6 +49,7 @@ function ColonyPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingAction, setDeletingAction] = useState<string | null>(null);
+  const [showAllLogs, setShowAllLogs] = useState(false);
 
   const colony = data.colonies.find((item) => item.id === colonyId);
   if (!colony) {
@@ -70,6 +71,7 @@ function ColonyPage() {
   const history = queenHistory(data, colony.id);
   const previous = history.filter((item) => item.retiredAt);
   const logs = actionsOf(data, colony.id);
+  const visibleLogs = showAllLogs ? logs : logs.slice(0, 40);
   const healthRows = healthOfColony(data, colony.id);
   const lastVarroa = lastVarroaTreatment(data, colony.id);
   const noun = COLONY_KIND_LABEL[colony.kind];
@@ -242,7 +244,7 @@ function ColonyPage() {
           </p>
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-[var(--shadow-border)]">
-            {logs.map((action) => {
+            {visibleLogs.map((action) => {
               const summary = actionSummary(action, data);
               return (
                 <li key={action.id} className="flex items-start justify-between gap-3 px-4 py-3">
@@ -266,6 +268,16 @@ function ColonyPage() {
             })}
           </ul>
         )}
+        {logs.length > 40 && !showAllLogs ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            onClick={() => setShowAllLogs(true)}
+          >
+            Ver las {logs.length - 40} anteriores
+          </Button>
+        ) : null}
       </section>
 
       <ActionFormDialog
@@ -287,7 +299,7 @@ function ColonyPage() {
         presetColonyId={colony.id}
         presetTopic="varroa"
         onSubmit={async (rows) => {
-          for (const row of rows) await saveHealth.mutateAsync(row);
+          await saveHealthMany.mutateAsync(rows);
           toast.success(rows.length > 1 ? `${rows.length} registros guardados` : "Registro sanitario guardado");
         }}
       />

@@ -1,4 +1,4 @@
-import { yearOf } from "./dates";
+import { currentYear, yearOf } from "./dates";
 import { sortColonies } from "./selectors";
 import type {
   AppState,
@@ -46,6 +46,8 @@ export const VARROA_PRODUCTS = [
 
 const LEGACY_PREFIX = "hlth-";
 
+const unifiedCache = new WeakMap<AppState, HealthRecord[]>();
+
 export function isLegacyHealthId(id: string): boolean {
   return id.startsWith(LEGACY_PREFIX);
 }
@@ -56,28 +58,49 @@ export function legacyActionId(healthId: string): string {
 
 /** Health store plus old "tratamiento" actions that were never copied over. */
 export function unifiedHealth(state: AppState): HealthRecord[] {
+  const cached = unifiedCache.get(state);
+  if (cached) return cached;
+
   const stored = state.health ?? [];
-  const linked = new Set(
-    stored.flatMap((row) => (row.actionId ? [row.actionId] : [])),
-  );
-  const fromActions: HealthRecord[] = state.actions
-    .filter((action) => action.type === "treatment" && !linked.has(action.id))
-    .filter((action) => !stored.some((row) => row.id === `${LEGACY_PREFIX}${action.id}`))
-    .map((action) => ({
+  const linked = new Set<string>();
+  const storedIds = new Set<string>();
+  for (const row of stored) {
+    storedIds.add(row.id);
+    if (row.actionId) linked.add(row.actionId);
+  }
+
+  const fromActions: HealthRecord[] = [];
+  for (const action of state.actions) {
+    if (action.type !== "treatment") continue;
+    if (linked.has(action.id)) continue;
+    if (storedIds.has(`${LEGACY_PREFIX}${action.id}`)) continue;
+    fromActions.push({
       id: `${LEGACY_PREFIX}${action.id}`,
       colonyId: action.colonyId,
-      topic: "varroa" as const,
-      kind: "treatment" as const,
+      topic: "varroa",
+      kind: "treatment",
       date: action.date,
       product: action.treatmentProduct,
       notes: action.notes,
       actionId: action.id,
       createdAt: action.createdAt,
-    }));
+    });
+  }
 
-  return [...stored, ...fromActions].sort(
+  const merged = [...stored, ...fromActions].sort(
     (a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt),
   );
+  unifiedCache.set(state, merged);
+  return merged;
+}
+
+export function healthYears(state: AppState): number[] {
+  const years = new Set<number>([currentYear()]);
+  for (const row of unifiedHealth(state)) {
+    const year = yearOf(row.date);
+    if (Number.isFinite(year)) years.add(year);
+  }
+  return [...years].sort((a, b) => b - a);
 }
 
 export function healthOfColony(state: AppState, colonyId: string): HealthRecord[] {
